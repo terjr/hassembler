@@ -1,8 +1,9 @@
-import Data.Char
 import Control.Applicative ((<*))
+import Data.Char
 import Numeric
 import System.Environment
-import Text.ParserCombinators.Parsec
+import Text.Parsec
+import Text.Parsec.String
 
 asmFile = instr `endBy` eol <* eof
 instr = regInstr <|> ldImmInstr
