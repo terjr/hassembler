@@ -19,36 +19,12 @@ data Operand = Reg Char Integer
 regOrImm :: String -> Operand
 regOrImm x  = case x of
                 '#':t -> Imm $ read t
-                x     -> Reg (head x) (read (tail x))
+                v:vs  -> Reg v (read vs)
 
-opcode = try (string "addi")
-     <|> try (string "fadd")
-     <|> try (string "add")
-     <|> try (string "sub")
-     <|> try (string "fsub")
-     <|> try (string "cmp")
-     <|> try (string "mul")
-     <|> try (string "fmul")
-     <|> try (string "fmla")
-     <|> try (string "fmls")
-     <|> try (string "shl")
-     <|> try (string "shr")
 
-     <|> try (string "and")
-     <|> try (string "nand")
-     <|> try (string "or")
-     <|> try (string "nor")
-     <|> try (string "xor")
-     <|> try (string "mov")
-     <|> try (string "mvn")
-     <|> try (string "i2f")
-     <|> try (string "f2i")
-     <|> try (string "lda")
-     <|> try (string "ldb")
-     <|> try (string "ldc")
-     <|> try (string "stb")
-
-     <?> "opcode"
+opcode = choice . map (try . string) $
+         ["addi", "fadd", "add", "sub", "fsub", "cmp", "mul", "fmul", "fmla", "fmls", "shl", "shr",
+         "and", "nand", "or", "nor", "xor", "mov", "mvn", "i2f", "f2i", "lda", "ldb", "ldc", "stb"]
 
 regInstr = do
   op   <- opcode
