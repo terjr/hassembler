@@ -1,11 +1,23 @@
-import Control.Applicative ((<*))
+module Main where
+
 import Data.Char
+import Data.Functor.Identity
 import Numeric
 import System.Environment
 import Text.Parsec
 import Text.Parsec.String
 
-asmFile = instr `endBy` eol <* eof
+
+type InstrCount = Integer
+pMain   :: ParsecT String Integer Identity ([Instruction], InstrCount)
+pMain = do
+  instr <- asmFile
+  eof
+  n     <- getState
+  return (instr,n)
+
+asmFile :: ParsecT String Integer Identity [Instruction]
+asmFile = instr `endBy` eol
 instr = regInstr <|> ldImmInstr
 
 data Instruction = RegInstr String Operand Operand
@@ -34,6 +46,7 @@ regInstr = do
   optional $ char ','
   spaces
   reg2 <- count 2 alphaNum
+  modifyState (+1)
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
 ldImmInstr = do
@@ -41,6 +54,7 @@ ldImmInstr = do
   spaces
   char '#'
   imm <- many digit
+  modifyState (+1)
   return $ LdImmInstr $ read imm
 
 
@@ -92,16 +106,32 @@ translate (RegInstr op r1@(Reg c1 n1) r2) = firstSixBits op ++ firstOp ++ second
                                                               (Imm n2)    -> fixedSizeBinary 5 n2
 translate (LdImmInstr imm)                = "11" ++ fixedSizeBinary 14 imm
 
+parseFile p fname = do
+  input <- readFile fname
+  return $ runParser p 0 fname input
+
 main = do
+  args    <- getArgs
+  results <- parseFile pMain $ head args
+  case results of
+    Left err -> print err
+    Right (instrs, count) -> do
+      putStrLn $ "Instructions assembled: " ++ show count
+      putStrLn $ concat $ map translate instrs
+
+{--
+main_old = do
   args    <- getArgs
   results <- parseFromFile asmFile $ head args
   case results of
     Left err -> print err
     Right xs -> putStrLn $ concat $ map translate xs
 
-main_old =
+
+main_older =
     do c <- getContents
        case parse asmFile "(unknown)" c of
             Left e -> do putStrLn "Error parsing input:"
                          print e
             Right r -> mapM_ print r
+--}
