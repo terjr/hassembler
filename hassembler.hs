@@ -18,10 +18,11 @@ pMain = do
 
 asmFile :: ParsecT String Integer Identity [Instruction]
 asmFile = instr `endBy` eol
-instr = regInstr <|> ldImmInstr
+instr = regInstr <|> ldImmInstr <|> ldStInstr
 
 data Instruction = RegInstr String Operand Operand
                  | LdImmInstr Integer
+--                 | LdStInstr String Operand Operand
 --                 | BranchInstr Integer
   deriving (Eq, Show)
 
@@ -37,25 +38,41 @@ regOrImm x  = case x of
 
 opcode = choice . map (try . string) $
          ["addi", "fadd", "add", "sub", "fsub", "cmp", "mul", "fmul", "fmla", "fmls", "shl", "shr",
-         "and", "nand", "or", "nor", "xor", "mov", "mvn", "i2f", "f2i", "lda", "ldb", "ldc", "stb"]
+         "and", "nand", "or", "nor", "xor", "mov", "mvn", "i2f", "f2i"]
+
+ldStOpcode = choice . map (try . string) $
+             ["lda", "ldb", "ldc", "stb"]
 
 regInstr = do
-  op   <- opcode
+  op    <- opcode
   spaces
-  reg1 <- count 2 alphaNum
-  optional $ char ','
+  reg1  <- count 2 alphaNum
+  char ','
   spaces
-  reg2 <- count 2 alphaNum
+  reg2  <- count 2 alphaNum
   modifyState (+1)
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
 ldImmInstr = do
-  string "ldi"
+  try (string "ldi")
   spaces
   char '#'
-  imm <- many digit
+  imm   <- many digit
   modifyState (+1)
   return $ LdImmInstr $ read imm
+
+brackets :: ParsecT String u Identity a -> ParsecT String u Identity a
+brackets = between (char '[') (char ']')
+
+ldStInstr = do
+  op    <- ldStOpcode
+  spaces
+  reg1  <- count 2 alphaNum
+  char ','
+  spaces
+  reg2  <- brackets (count 2 alphaNum)
+  modifyState (+1)
+  return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
 
 eol =   try (string "\n\r")
@@ -98,13 +115,17 @@ bin x = showIntAtBase 2 intToDigit x ""
 binary `ofSize` n     = replicate (n - (length binary)) '0' ++ binary
 fixedSizeBinary n x   = bin x `ofSize` n
 
+
 translate :: Instruction -> String
-translate (RegInstr op r1@(Reg c1 n1) r2) = firstSixBits op ++ firstOp ++ secondOp
-                                            where firstOp   = fixedSizeBinary 5 n1 -- handle c1
-                                                  secondOp  = case r2 of
-                                                              (Reg b2 n2) -> fixedSizeBinary 5 n2
-                                                              (Imm n2)    -> fixedSizeBinary 5 n2
-translate (LdImmInstr imm)                = "11" ++ fixedSizeBinary 14 imm
+translate (RegInstr op r1@(Reg _ n1) r2) =
+  firstSixBits op ++ firstOp ++ secondOp
+    where  firstOp   = fixedSizeBinary 5 n1
+           secondOp  = case r2 of
+                         (Reg b2 n2) -> fixedSizeBinary 5 n2
+                         (Imm n2)    -> fixedSizeBinary 5 n2
+
+translate (LdImmInstr imm) =
+  "11" ++ fixedSizeBinary 14 imm
 
 parseFile p fname = do
   input <- readFile fname
@@ -119,19 +140,3 @@ main = do
       putStrLn $ "Instructions assembled: " ++ show count
       putStrLn $ concat $ map translate instrs
 
-{--
-main_old = do
-  args    <- getArgs
-  results <- parseFromFile asmFile $ head args
-  case results of
-    Left err -> print err
-    Right xs -> putStrLn $ concat $ map translate xs
-
-
-main_older =
-    do c <- getContents
-       case parse asmFile "(unknown)" c of
-            Left e -> do putStrLn "Error parsing input:"
-                         print e
-            Right r -> mapM_ print r
---}
