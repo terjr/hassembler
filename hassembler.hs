@@ -27,12 +27,14 @@ instr = regInstr
     <|> ldImmInstr
     <|> ldStInstr
     <|> branchInstr
+    <|> nop
     <|> asmLabel
 
 data Instruction = RegInstr String Operand Operand
                  | LdImmInstr Integer
                  | Label
                  | BranchInstr String Integer
+                 | Nop
   deriving (Eq, Show)
 
 data Operand = Reg Char Integer
@@ -64,6 +66,11 @@ putLabel k (n, m) = (n, Map.insert k (n*16) m)
 
 bumpInstrCount :: ParserState -> ParserState
 bumpInstrCount (n, r) = (n+1, r)
+
+nop = do
+  try (string "nop")
+  modifyState bumpInstrCount
+  return Nop
 
 branchInstr = do
   op      <- try branchOpcode
@@ -177,6 +184,8 @@ translate (BranchInstr op adr) =
                     "ble" -> "0001"
                     "jmp" -> "0000"
           jumpAdr = fixedSizeBinary 10 adr
+
+translate Nop = replicate 16 '0'
 
 parseFile p fname = do
   input <- readFile fname
