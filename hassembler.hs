@@ -28,6 +28,7 @@ instr = regInstr
     <|> ldStInstr
     <|> branchInstr
     <|> nop
+    <|> halt
     <|> asmLabel
 
 data Instruction = RegInstr String Operand Operand
@@ -35,6 +36,7 @@ data Instruction = RegInstr String Operand Operand
                  | Label
                  | BranchInstr String Integer
                  | Nop
+                 | Halt
   deriving (Eq, Show)
 
 data Operand = Reg Char Integer
@@ -66,6 +68,11 @@ putLabel k (n, m) = (n, Map.insert k (n*16) m)
 
 bumpInstrCount :: ParserState -> ParserState
 bumpInstrCount (n, r) = (n+1, r)
+
+halt = do
+  try (string "halt")
+  modifyState bumpInstrCount
+  return Halt
 
 nop = do
   try (string "nop")
@@ -139,8 +146,8 @@ firstSixBits "mul"  = "001000"
 firstSixBits "fmul" = "001001"
 firstSixBits "fmla" = "001010"
 firstSixBits "fmls" = "001011"
-firstSixBits "shl"  = "001100"
-firstSixBits "shr"  = "001101"
+firstSixBits "shl"  = "001100" -- Not used
+firstSixBits "shr"  = "001101" -- Not used
 
 firstSixBits "and"  = "010000"
 firstSixBits "nand" = "010001"
@@ -186,6 +193,10 @@ translate (BranchInstr op adr) =
           jumpAdr = fixedSizeBinary 10 adr
 
 translate Nop = replicate 16 '0'
+
+
+-- Note: Shifting is redefined to be halt
+translate Halt = "0011" ++ fixedSizeBinary 12 0
 
 parseFile p fname = do
   input <- readFile fname
