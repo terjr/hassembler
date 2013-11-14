@@ -26,13 +26,13 @@ asmFile = instr `endBy` eol
 instr = regInstr
     <|> ldImmInstr
     <|> ldStInstr
+    <|> branchInstr
     <|> asmLabel
 
 data Instruction = RegInstr String Operand Operand
                  | LdImmInstr Integer
                  | Label
---                 | LdStInstr String Operand Operand
-                 | BranchInstr Integer
+                 | BranchInstr String Integer
   deriving (Eq, Show)
 
 data Operand = Reg Char Integer
@@ -46,17 +46,35 @@ regOrImm x  = case x of
 
 
 opcode = choice . map (try . string) $
-         ["addi", "fadd", "add", "sub", "fsub", "cmp", "mul", "fmul", "fmla", "fmls", "shl", "shr",
-         "and", "nand", "or", "nor", "xor", "mov", "mvn", "i2f", "f2i"]
+         ["addi", "fadd", "add", "sub",
+         "fsub", "cmp", "mul", "fmul",
+         "fmla", "fmls", "shl", "shr",
+         "and", "nand", "or", "nor",
+         "xor", "mov", "mvn", "i2f", "f2i"]
 
-ldStOpcode = choice . map (try . string) $
-             ["lda", "ldb", "ldc", "stb"]
+ldStOpcode    = choice . map (try . string) $
+                ["lda", "ldb", "ldc", "stb"]
+
+branchOpcode  = choice . map (try . string) $
+                ["beq", "bne", "blt", "bgt", "jmp"]
+
 
 putLabel :: String -> ParserState -> ParserState
 putLabel k (n, m) = (n, Map.insert k (n*16) m)
 
 bumpInstrCount :: ParserState -> ParserState
 bumpInstrCount (n, r) = (n+1, r)
+
+branchInstr = do
+  op      <- try branchOpcode
+  spaces
+  char '@'
+  label   <- (many (noneOf "\n"))
+  modifyState bumpInstrCount
+  (_, m)  <- getState
+  case (Map.lookup label m) of
+    Just x  -> return (BranchInstr op x)
+    Nothing -> fail "Invalid branch"
 
 asmLabel = do
   labelName <- try (many (noneOf ":"))
@@ -131,6 +149,8 @@ firstSixBits "ldb"  = "011101"
 firstSixBits "ldc"  = "011110"
 firstSixBits "stb"  = "011111"
 
+loadImmGroup = "10"
+branchGroup  = "11"
 
 bin x = showIntAtBase 2 intToDigit x ""
 binary `ofSize` n     = replicate (n - (length binary)) '0' ++ binary
@@ -145,10 +165,18 @@ translate (RegInstr op r1@(Reg _ n1) r2) =
                          (Reg b2 n2) -> fixedSizeBinary 5 n2
                          (Imm n2)    -> fixedSizeBinary 5 n2
 
-translate (LdImmInstr imm) =
-  "11" ++ fixedSizeBinary 14 imm
+translate (LdImmInstr imm)  =
+  loadImmGroup ++ fixedSizeBinary 14 imm
 
-translate Label = ""
+translate Label             = ""
+
+translate (BranchInstr op adr) =
+  branchGroup ++ flags ++ jumpAdr
+    where flags = case op of
+                    "beq" -> "1000"
+                    "ble" -> "0001"
+                    "jmp" -> "0000"
+          jumpAdr = fixedSizeBinary 10 adr
 
 parseFile p fname = do
   input <- readFile fname
