@@ -123,7 +123,7 @@ ldStInstr = do
   reg1  <- count 2 alphaNum
   char ','
   spaces
-  reg2  <- brackets (count 2 alphaNum)
+  reg2  <- brackets (many (noneOf "]"))
   modifyState bumpInstrCount
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
