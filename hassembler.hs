@@ -7,23 +7,32 @@ import System.Environment
 import Text.Parsec
 import Text.Parsec.String
 
+import qualified Data.Map as Map
 
-type InstrCount = Integer
-pMain   :: ParsecT String Integer Identity ([Instruction], InstrCount)
+startState :: (Integer, Map.Map String Integer)
+startState = (0, Map.empty)
+
+type ParserState = (Integer, Map.Map String Integer)
+
+pMain   :: ParsecT String ParserState Identity ([Instruction], ParserState)
 pMain = do
   instr <- asmFile
   eof
-  n     <- getState
-  return (instr,n)
+  st    <- getState
+  return (instr, st)
 
-asmFile :: ParsecT String Integer Identity [Instruction]
+asmFile :: ParsecT String ParserState Identity [Instruction]
 asmFile = instr `endBy` eol
-instr = regInstr <|> ldImmInstr <|> ldStInstr
+instr = regInstr
+    <|> ldImmInstr
+    <|> ldStInstr
+    <|> asmLabel
 
 data Instruction = RegInstr String Operand Operand
                  | LdImmInstr Integer
+                 | Label
 --                 | LdStInstr String Operand Operand
---                 | BranchInstr Integer
+                 | BranchInstr Integer
   deriving (Eq, Show)
 
 data Operand = Reg Char Integer
@@ -43,6 +52,18 @@ opcode = choice . map (try . string) $
 ldStOpcode = choice . map (try . string) $
              ["lda", "ldb", "ldc", "stb"]
 
+putLabel :: String -> ParserState -> ParserState
+putLabel k (n, m) = (n, Map.insert k (n*16) m)
+
+bumpInstrCount :: ParserState -> ParserState
+bumpInstrCount (n, r) = (n+1, r)
+
+asmLabel = do
+  labelName <- try (many (noneOf ":"))
+  char ':'
+  modifyState (putLabel labelName)
+  return Label
+
 regInstr = do
   op    <- opcode
   spaces
@@ -50,7 +71,7 @@ regInstr = do
   char ','
   spaces
   reg2  <- count 2 alphaNum
-  modifyState (+1)
+  modifyState bumpInstrCount
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
 ldImmInstr = do
@@ -58,7 +79,7 @@ ldImmInstr = do
   spaces
   char '#'
   imm   <- many digit
-  modifyState (+1)
+  modifyState bumpInstrCount
   return $ LdImmInstr $ read imm
 
 brackets :: ParsecT String u Identity a -> ParsecT String u Identity a
@@ -71,7 +92,7 @@ ldStInstr = do
   char ','
   spaces
   reg2  <- brackets (count 2 alphaNum)
-  modifyState (+1)
+  modifyState bumpInstrCount
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
 
@@ -127,16 +148,18 @@ translate (RegInstr op r1@(Reg _ n1) r2) =
 translate (LdImmInstr imm) =
   "11" ++ fixedSizeBinary 14 imm
 
+translate Label = ""
+
 parseFile p fname = do
   input <- readFile fname
-  return $ runParser p 0 fname input
+  return $ runParser p startState fname input
 
 main = do
   args    <- getArgs
   results <- parseFile pMain $ head args
   case results of
     Left err -> print err
-    Right (instrs, count) -> do
+    Right (instrs, (count, labelMap)) -> do
       putStrLn $ "Instructions assembled: " ++ show count
       putStrLn $ concat $ map translate instrs
 
