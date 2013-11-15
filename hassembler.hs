@@ -89,7 +89,7 @@ nop = do
 
 branchInstr = do
   op      <- try branchOpcode
-  spaces
+  skipMany (char ' ')
   char '@'
   label   <- (many (noneOf "\n"))
   modifyState bumpInstrCount
@@ -106,17 +106,17 @@ asmLabel = do
 
 regInstr = do
   op    <- opcode
-  spaces
+  skipMany (char ' ')
   reg1  <- count 2 alphaNum
   char ','
-  spaces
+  skipMany (char ' ')
   reg2  <- count 2 alphaNum
   modifyState bumpInstrCount
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
 ldImmInstr = do
   try (string "ldi")
-  spaces
+  skipMany (char ' ')
   char '#'
   imm   <- many digit
   modifyState bumpInstrCount
@@ -127,10 +127,10 @@ brackets = between (char '[') (char ']')
 
 ldStInstr = do
   op    <- ldStOpcode
-  spaces
+  skipMany (char ' ')
   reg1  <- count 2 alphaNum
   char ','
-  spaces
+  skipMany (char ' ')
   reg2  <- brackets (many (noneOf "]"))
   modifyState bumpInstrCount
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
