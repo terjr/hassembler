@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Applicative ((*>))
 import Data.Char
 import Data.Functor.Identity
 import Numeric
@@ -8,6 +9,7 @@ import Text.Parsec
 import Text.Parsec.String
 
 import qualified Data.Map as Map
+
 
 startState :: (Integer, Map.Map String Integer)
 startState = (0, Map.empty)
@@ -22,7 +24,7 @@ pMain = do
   return (instr, st)
 
 asmFile :: ParsecT String ParserState Identity [Instruction]
-asmFile = instr `endBy` eol
+asmFile = instr `endBy` (optional comment *> eol)
 instr = regInstr
     <|> ldImmInstr
     <|> ldStInstr
@@ -30,6 +32,12 @@ instr = regInstr
     <|> nop
     <|> halt
     <|> asmLabel
+
+comment = do
+  skipMany (char ' ')
+  char ';'
+  skipMany (noneOf "\n")
+  return ()
 
 data Instruction = RegInstr String Operand Operand
                  | LdImmInstr Integer
@@ -91,7 +99,7 @@ branchInstr = do
     Nothing -> fail "Invalid branch"
 
 asmLabel = do
-  labelName <- try (many (noneOf ":"))
+  labelName <- try (many (noneOf ":\n"))
   char ':'
   modifyState (putLabel labelName)
   return Label
