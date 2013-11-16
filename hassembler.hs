@@ -25,7 +25,8 @@ pMain = do
 
 asmFile :: ParsecT String ParserState Identity [Instruction]
 asmFile = instr `endBy` (optional comment *> eol)
-instr = regInstr
+instr = blankLine
+    <|> regInstr
     <|> ldImmInstr
     <|> ldStInstr
     <|> branchInstr
@@ -45,6 +46,7 @@ data Instruction = RegInstr String Operand Operand
                  | BranchInstr String Integer
                  | Nop
                  | Halt
+                 | BlankLine
   deriving (Eq, Show)
 
 data Operand = Reg Char Integer
@@ -76,6 +78,10 @@ putLabel k (n, m) = (n, Map.insert k (n*16) m)
 
 bumpInstrCount :: ParserState -> ParserState
 bumpInstrCount (n, r) = (n+1, r)
+
+blankLine = do
+  lookAhead (char '\n')
+  return BlankLine
 
 halt = do
   try (string "halt")
@@ -191,6 +197,7 @@ translate (LdImmInstr imm)  =
   loadImmGroup ++ fixedSizeBinary 14 imm
 
 translate Label             = ""
+translate BlankLine         = ""
 
 translate (BranchInstr op adr) =
   branchGroup ++ flags ++ jumpAdr
