@@ -108,7 +108,7 @@ branchInstr = do
       case (Map.lookup label m) of
         Just x  -> return (BranchInstr op x)
         Nothing -> fail "Invalid branch target"
-    '=' -> (many digit >>= \x -> return $ BranchInstr op $ read x)
+    '=' -> (many1 digit >>= \x -> return $ BranchInstr op $ read x)
     _   ->  fail "Invalid branch"
 
 
@@ -124,7 +124,7 @@ regInstr = do
   reg1  <- (many (noneOf ","))
   char ','
   skipMany (char ' ')
-  reg2  <- (many (noneOf "\n"))
+  reg2  <- (many (noneOf "[]\n;"))
   modifyState bumpInstrCount
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
