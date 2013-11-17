@@ -62,9 +62,10 @@ regOrImm x  = case x of
 opcode = choice . map (try . string) $
          ["addi", "fadd", "add", "sub",
          "fsub", "cmp", "mul", "fmul",
-         "fmla", "fmls", "shl", "shr",
-         "and", "nand", "or", "nor",
-         "xor", "mov", "mvn", "i2f", "f2i"]
+         "mac", "msc", "mad", "msd",
+         "shl", "shr", "and", "nand",
+         "or", "nor", "xor", "mov",
+         "mvn", "i2f", "f2i"]
 
 ldStOpcode    = choice . map (try . string) $
                 ["lda", "ldb", "ldc", "stb"]
@@ -165,11 +166,10 @@ firstSixBits "fsub" = "000101"
 firstSixBits "cmp"  = "000110"
 firstSixBits "mul"  = "001000"
 firstSixBits "fmul" = "001001"
-firstSixBits "fmla" = "001010"
-firstSixBits "fmls" = "001011"
-firstSixBits "shl"  = "001100" -- Not used
-firstSixBits "shr"  = "001101" -- Not used
-
+firstSixBits "mac"  = "001010"
+firstSixBits "msc"  = "001011"
+firstSixBits "mad"  = "001110"
+firstSixBits "msd"  = "001111"
 firstSixBits "and"  = "010000"
 firstSixBits "nand" = "010001"
 firstSixBits "or"   = "010100"
@@ -210,7 +210,8 @@ translate (BranchInstr op adr) =
   branchGroup ++ flags ++ jumpAdr
     where flags = case op of
                     "beq" -> "1000"
-                    "ble" -> "0001"
+                    "ble" -> "1001"
+                    "blt" -> "0001"
                     "jmp" -> "0000"
           jumpAdr = fixedSizeBinary 10 adr
 
