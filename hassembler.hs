@@ -93,16 +93,23 @@ nop = do
   modifyState bumpInstrCount
   return Nop
 
+branchSymbol = char '@' <|> char '='
+
 branchInstr = do
   op      <- try branchOpcode
   skipMany (char ' ')
-  char '@'
-  label   <- (many (noneOf "\n"))
+  c       <- branchSymbol
   modifyState bumpInstrCount
-  (_, m)  <- getState
-  case (Map.lookup label m) of
-    Just x  -> return (BranchInstr op x)
-    Nothing -> fail "Invalid branch"
+  case c of
+    '@' -> do
+      label   <- (many (noneOf "\n"))
+      (_, m)  <- getState
+      case (Map.lookup label m) of
+        Just x  -> return (BranchInstr op x)
+        Nothing -> fail "Invalid branch target"
+    '=' -> (many digit >>= \x -> return $ BranchInstr op $ read x)
+    _   ->  fail "Invalid branch"
+
 
 asmLabel = do
   labelName <- try (many (noneOf ":\n"))
