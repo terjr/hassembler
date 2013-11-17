@@ -74,7 +74,7 @@ branchOpcode  = choice . map (try . string) $
 
 
 putLabel :: String -> ParserState -> ParserState
-putLabel k (n, m) = (n, Map.insert k (n*16) m)
+putLabel k (n, m) = (n, Map.insert k n m)
 
 bumpInstrCount :: ParserState -> ParserState
 bumpInstrCount (n, r) = (n+1, r)
