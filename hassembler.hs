@@ -113,10 +113,10 @@ asmLabel = do
 regInstr = do
   op    <- opcode
   skipMany (char ' ')
-  reg1  <- count 2 alphaNum
+  reg1  <- (many (noneOf ","))
   char ','
   skipMany (char ' ')
-  reg2  <- count 2 alphaNum
+  reg2  <- (many (noneOf "\n"))
   modifyState bumpInstrCount
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
@@ -134,7 +134,7 @@ brackets = between (char '[') (char ']')
 ldStInstr = do
   op    <- ldStOpcode
   skipMany (char ' ')
-  reg1  <- count 2 alphaNum
+  reg1  <- (many (noneOf ","))
   char ','
   skipMany (char ' ')
   reg2  <- brackets (many (noneOf "]"))
