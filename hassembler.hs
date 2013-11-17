@@ -63,9 +63,8 @@ opcode = choice . map (try . string) $
          ["addi", "fadd", "add", "sub",
          "fsub", "cmp", "mul", "fmul",
          "mac", "msc", "mad", "msd",
-         "shl", "shr", "and", "nand",
-         "or", "nor", "xor", "mov",
-         "mvn", "i2f", "f2i"]
+         "and", "nand", "or", "nor",
+         "xor", "mov", "mvn", "i2f", "f2i"]
 
 ldStOpcode    = choice . map (try . string) $
                 ["lda", "ldb", "ldc", "stb"]
