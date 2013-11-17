@@ -120,10 +120,10 @@ asmLabel = do
 regInstr = do
   op    <- opcode
   skipMany (char ' ')
-  reg1  <- (many (noneOf ","))
+  reg1  <- (many (noneOf ", "))
   char ','
   skipMany (char ' ')
-  reg2  <- (many (noneOf "[]\n;"))
+  reg2  <- (many (noneOf " ]\n;"))
   modifyState bumpInstrCount
   return $ RegInstr op (regOrImm reg1) (regOrImm reg2)
 
